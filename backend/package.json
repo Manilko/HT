@@ -11,9 +11,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit",
     "test:health": "jest tests/unit/health.test.ts tests/integration/health.routes.test.ts --forceExit",
+    "test:database": "jest tests/unit/database.constraints.test.ts --forceExit",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "migrate": "node -r ts-node/register migrations/run.ts"
+    "db:migrate": "ts-node src/migrations/migrate.ts up",
+    "db:rollback": "ts-node src/migrations/migrate.ts down"
   },
   "dependencies": {
     "express": "^4.18.2",
