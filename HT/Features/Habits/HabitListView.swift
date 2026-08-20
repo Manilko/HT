@@ -21,17 +21,21 @@ struct HabitListView: View {
             .background(Color(.systemBackground))
         } else if viewModel.isEmpty {
           EmptyStateView(
-            icon: "checkmark.circle",
-            title: "No habits yet",
-            message: "Create your first habit to get started",
+            icon: viewModel.allHabits.isEmpty ? "checkmark.circle" : "magnifyingglass",
+            title: viewModel.allHabits.isEmpty ? "No habits yet" : "No results",
+            message: viewModel.allHabits.isEmpty ? "Create your first habit to get started" : "Try adjusting your filters or search",
             action: {
-              showCreateForm = true
+              if viewModel.allHabits.isEmpty {
+                showCreateForm = true
+              } else {
+                viewModel.clearFilters()
+              }
             },
-            actionLabel: "Create Habit"
+            actionLabel: viewModel.allHabits.isEmpty ? "Create Habit" : "Clear Filters"
           )
         } else {
           List {
-            ForEach(viewModel.habits) { habit in
+            ForEach(viewModel.filteredHabits) { habit in
               HabitRowView(habit: habit)
                 .onTapGesture {
                   selectedHabit = habit
@@ -63,6 +67,93 @@ struct HabitListView: View {
           }
           .accessibilityLabel("Create new habit")
         }
+      }
+      .safeAreaInset(edge: .top) {
+        VStack(spacing: 12) {
+          // Search bar
+          HStack {
+            Image(systemName: "magnifyingglass")
+              .foregroundColor(.gray)
+
+            TextField("Search habits", text: $viewModel.searchText)
+              .onChange(of: viewModel.searchText) { _, newValue in
+                viewModel.updateSearch(newValue)
+              }
+              .textInputAutocapitalization(.never)
+              .accessibilityLabel("Search habits")
+
+            if !viewModel.searchText.isEmpty {
+              Button(action: { viewModel.updateSearch("") }) {
+                Image(systemName: "xmark.circle.fill")
+                  .foregroundColor(.gray)
+              }
+              .accessibilityLabel("Clear search")
+            }
+          }
+          .padding(.horizontal, 10)
+          .padding(.vertical, 8)
+          .background(Color(.systemGray6))
+          .cornerRadius(8)
+
+          // Filter pills
+          VStack(spacing: 8) {
+            HStack(spacing: 8) {
+              // Status filters
+              FilterPill(
+                label: "Active",
+                isActive: viewModel.selectedStatuses.contains(.active),
+                action: { viewModel.toggleStatus(.active) }
+              )
+
+              FilterPill(
+                label: "Paused",
+                isActive: viewModel.selectedStatuses.contains(.paused),
+                action: { viewModel.toggleStatus(.paused) }
+              )
+
+              FilterPill(
+                label: "Archived",
+                isActive: viewModel.selectedStatuses.contains(.archived),
+                action: { viewModel.toggleStatus(.archived) }
+              )
+
+              Spacer()
+            }
+
+            HStack(spacing: 8) {
+              FilterPill(
+                label: "Completed Today",
+                isActive: viewModel.showCompletedOnly,
+                action: { viewModel.toggleCompletionFilter() }
+              )
+
+              if viewModel.hasActiveFilters {
+                Button(action: { viewModel.clearFilters() }) {
+                  HStack(spacing: 4) {
+                    Image(systemName: "xmark")
+                      .font(.caption)
+
+                    Text("Clear")
+                      .font(.caption)
+                      .fontWeight(.medium)
+                  }
+                  .padding(.horizontal, 10)
+                  .padding(.vertical, 6)
+                  .foregroundColor(.blue)
+                  .background(Color.blue.opacity(0.1))
+                  .cornerRadius(6)
+                }
+                .accessibilityLabel("Clear all filters")
+              }
+
+              Spacer()
+            }
+          }
+          .padding(.horizontal)
+          .padding(.bottom, 8)
+        }
+        .padding(.top, 12)
+        .background(Color(.systemBackground))
       }
       .sheet(isPresented: $showCreateForm) {
         NavigationStack {
@@ -104,6 +195,27 @@ struct HabitListView: View {
         await viewModel.loadHabits()
       }
     }
+  }
+}
+
+struct FilterPill: View {
+  let label: String
+  let isActive: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Text(label)
+        .font(.caption)
+        .fontWeight(.medium)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .foregroundColor(isActive ? .white : .blue)
+        .background(isActive ? Color.blue : Color.blue.opacity(0.1))
+        .cornerRadius(6)
+    }
+    .accessibilityLabel("Filter: \(label)")
+    .accessibilityHint(isActive ? "Active" : "Inactive")
   }
 }
 

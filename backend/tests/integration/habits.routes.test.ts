@@ -349,3 +349,245 @@ describe('Habits Routes', () => {
     });
   });
 });
+
+  describe('Search and Filtering', () => {
+    beforeEach(async () => {
+      // Create multiple habits
+      await request(app)
+        .post('/v1/habits')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ name: 'Morning Run', description: 'Run 5 miles', startDate: '2026-08-20' });
+
+      await request(app)
+        .post('/v1/habits')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ name: 'Evening Yoga', description: 'Relaxing yoga session', startDate: '2026-08-20' });
+
+      await request(app)
+        .post('/v1/habits')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ name: 'Reading', description: 'Read a chapter', startDate: '2026-08-20' });
+    });
+
+    describe('Search by name', () => {
+      it('should find habits by name search', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=Morning')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Morning Run');
+      });
+
+      it('should find habits by partial name search', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=Run')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Morning Run');
+      });
+
+      it('should be case-insensitive for name search', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=morning')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Morning Run');
+      });
+
+      it('should return empty results for non-matching name search', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=Swimming')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(0);
+      });
+    });
+
+    describe('Search by description', () => {
+      it('should find habits by description search', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=yoga')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Evening Yoga');
+      });
+
+      it('should find habits by partial description search', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=chapter')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Reading');
+      });
+    });
+
+    describe('Status filter', () => {
+      it('should filter by single status', async () => {
+        // Create a paused habit
+        const createResponse = await request(app)
+          .post('/v1/habits')
+          .set('Authorization', `Bearer ${user1Token}`)
+          .send({ name: 'Paused Habit', startDate: '2026-08-20' });
+
+        const habitId = createResponse.body.data.id;
+
+        await request(app)
+          .patch(`/v1/habits/${habitId}`)
+          .set('Authorization', `Bearer ${user1Token}`)
+          .send({ status: 'PAUSED' });
+
+        const response = await request(app)
+          .get('/v1/habits?status=PAUSED')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].status).toBe('PAUSED');
+      });
+
+      it('should filter by multiple statuses', async () => {
+        const response = await request(app)
+          .get('/v1/habits?status=ACTIVE&status=PAUSED')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBeGreaterThanOrEqual(3);
+      });
+
+      it('should return empty results for status with no matches', async () => {
+        const response = await request(app)
+          .get('/v1/habits?status=ARCHIVED')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(0);
+      });
+
+      it('should reject invalid status filter', async () => {
+        const response = await request(app)
+          .get('/v1/habits?status=INVALID')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(400);
+        expect(response.body.error.code).toBe('INVALID_REQUEST');
+      });
+    });
+
+    describe('Combined filters', () => {
+      it('should combine search and status filters', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=Morning&status=ACTIVE')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Morning Run');
+        expect(response.body.data.habits[0].status).toBe('ACTIVE');
+      });
+
+      it('should return empty when search matches but status does not', async () => {
+        // Create an archived habit
+        const createResponse = await request(app)
+          .post('/v1/habits')
+          .set('Authorization', `Bearer ${user1Token}`)
+          .send({ name: 'Archived Reading', description: 'Read books', startDate: '2026-08-20' });
+
+        const habitId = createResponse.body.data.id;
+
+        await request(app)
+          .patch(`/v1/habits/${habitId}`)
+          .set('Authorization', `Bearer ${user1Token}`)
+          .send({ status: 'ARCHIVED' });
+
+        const response = await request(app)
+          .get('/v1/habits?search=Reading&status=ACTIVE')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Reading');
+      });
+
+      it('should return correct results for complex filter combinations', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=Yoga&status=ACTIVE')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Evening Yoga');
+      });
+    });
+
+    describe('User isolation with filters', () => {
+      it('should only return filtered results for own habits', async () => {
+        // Create habit for user2
+        await request(app)
+          .post('/v1/habits')
+          .set('Authorization', `Bearer ${user2Token}`)
+          .send({ name: 'Morning Run', description: 'User2 habit', startDate: '2026-08-20' });
+
+        // Search for "Morning Run" as user1
+        const response = await request(app)
+          .get('/v1/habits?search=Morning')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(1);
+        expect(response.body.data.habits[0].name).toBe('Morning Run');
+      });
+    });
+
+    describe('Empty states', () => {
+      it('should return empty array when no habits exist', async () => {
+        const response = await request(app)
+          .get('/v1/habits')
+          .set('Authorization', `Bearer ${user2Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.habits).toEqual([]);
+        expect(response.body.data.count).toBe(0);
+      });
+
+      it('should return empty array when search returns no results', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=NonExistent')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.habits).toEqual([]);
+        expect(response.body.data.count).toBe(0);
+      });
+
+      it('should return empty array when filters return no results', async () => {
+        const response = await request(app)
+          .get('/v1/habits?status=ARCHIVED')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.habits).toEqual([]);
+        expect(response.body.data.count).toBe(0);
+      });
+
+      it('should return empty array for search + status filter with no matches', async () => {
+        const response = await request(app)
+          .get('/v1/habits?search=Morning&status=ARCHIVED')
+          .set('Authorization', `Bearer ${user1Token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.count).toBe(0);
+      });
+    });
+  });
+});

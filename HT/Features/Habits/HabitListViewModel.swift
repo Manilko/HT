@@ -10,20 +10,30 @@ import Combine
 
 @MainActor
 class HabitListViewModel: ObservableObject {
-  @Published var habits: [HabitListItem] = []
+  @Published var allHabits: [HabitListItem] = []
+  @Published var filteredHabits: [HabitListItem] = []
   @Published var isLoading = false
   @Published var errorMessage: String?
   @Published var showDeleteConfirmation = false
   @Published var habitToDelete: HabitListItem?
 
+  // Search and filtering
+  @Published var searchText: String = ""
+  @Published var selectedStatuses: Set<HabitStatus> = [.active, .paused, .archived]
+  @Published var showCompletedOnly: Bool = false
+
   private let habitsAPIClient: HabitsAPIClient
 
   var isEmpty: Bool {
-    habits.isEmpty && !isLoading
+    filteredHabits.isEmpty && !isLoading
   }
 
   var hasError: Bool {
     errorMessage != nil
+  }
+
+  var hasActiveFilters: Bool {
+    !searchText.isEmpty || selectedStatuses.count < 3 || showCompletedOnly
   }
 
   init(habitsAPIClient: HabitsAPIClient = HabitsAPIClient()) {
@@ -36,14 +46,64 @@ class HabitListViewModel: ObservableObject {
 
     do {
       let fetchedHabits = try await habitsAPIClient.listHabits()
-      self.habits = fetchedHabits.map { habit in
+      self.allHabits = fetchedHabits.map { habit in
         HabitListItem(from: habit)
       }
+      applyFilters()
     } catch {
       errorMessage = error.localizedDescription
     }
 
     isLoading = false
+  }
+
+  private func applyFilters() {
+    var filtered = allHabits
+
+    // Apply status filter
+    filtered = filtered.filter { selectedStatuses.contains($0.status) }
+
+    // Apply search filter (name and description)
+    if !searchText.isEmpty {
+      let searchLower = searchText.lowercased()
+      filtered = filtered.filter { habit in
+        habit.name.lowercased().contains(searchLower) ||
+          (habit.description?.lowercased().contains(searchLower) ?? false)
+      }
+    }
+
+    // Apply completion filter (only for active habits)
+    if showCompletedOnly {
+      filtered = filtered.filter { $0.status.isActive && $0.todayCompleted }
+    }
+
+    self.filteredHabits = filtered
+  }
+
+  func updateSearch(_ text: String) {
+    searchText = text
+    applyFilters()
+  }
+
+  func toggleStatus(_ status: HabitStatus) {
+    if selectedStatuses.contains(status) {
+      selectedStatuses.remove(status)
+    } else {
+      selectedStatuses.insert(status)
+    }
+    applyFilters()
+  }
+
+  func toggleCompletionFilter() {
+    showCompletedOnly.toggle()
+    applyFilters()
+  }
+
+  func clearFilters() {
+    searchText = ""
+    selectedStatuses = [.active, .paused, .archived]
+    showCompletedOnly = false
+    applyFilters()
   }
 
   func archiveHabit(_ habit: HabitListItem) async {

@@ -20,6 +20,7 @@ import {
   HabitStatus,
   CreateHabitData,
   UpdateHabitData,
+  HabitFilterOptions,
 } from '../repositories/habitRepository';
 import { logger } from '../config/logger';
 
@@ -120,16 +121,34 @@ function habitToResponse(habit: Habit) {
   };
 }
 
-// MARK: - GET /habits - List user's habits
+// MARK: - GET /habits - List user's habits with optional filters
 
 router.get(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.userId!;
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const statusParam = req.query.status;
 
-    logger.info(`Fetching habits for user ${userId}`);
+    logger.info(`Fetching habits for user ${userId}${search ? ` with search: ${search}` : ''}${statusParam ? ` with statuses: ${statusParam}` : ''}`);
 
-    const habits = await getHabitsByUserId(userId);
+    // Parse status filter
+    let statuses: HabitStatus[] | undefined;
+    if (statusParam) {
+      const statusList = Array.isArray(statusParam) ? statusParam : [statusParam];
+      statuses = (statusList as string[]).filter(s => ['ACTIVE', 'PAUSED', 'ARCHIVED'].includes(s)) as HabitStatus[];
+
+      if (statuses.length === 0) {
+        throw new AppError('INVALID_REQUEST', 400, 'Invalid status filter values');
+      }
+    }
+
+    const filters: HabitFilterOptions = {
+      search: search && search.length > 0 ? search : undefined,
+      statuses,
+    };
+
+    const habits = await getHabitsByUserId(userId, filters);
 
     const response: ApiResponse = {
       success: true,

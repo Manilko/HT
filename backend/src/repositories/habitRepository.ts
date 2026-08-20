@@ -33,6 +33,11 @@ export interface UpdateHabitData {
   status?: HabitStatus;
 }
 
+export interface HabitFilterOptions {
+  search?: string;
+  statuses?: HabitStatus[];
+}
+
 export async function createHabit(userId: number, data: CreateHabitData): Promise<Habit> {
   try {
     const result = await query(
@@ -49,12 +54,30 @@ export async function createHabit(userId: number, data: CreateHabitData): Promis
   }
 }
 
-export async function getHabitsByUserId(userId: number): Promise<Habit[]> {
+export async function getHabitsByUserId(userId: number, filters?: HabitFilterOptions): Promise<Habit[]> {
   try {
-    const result = await query(
-      `SELECT * FROM habits WHERE user_id = $1 ORDER BY created_at DESC`,
-      [userId],
-    );
+    let sqlQuery = `SELECT * FROM habits WHERE user_id = $1`;
+    const params: unknown[] = [userId];
+    let paramIndex = 2;
+
+    // Search filter: search in name and description
+    if (filters?.search) {
+      const searchTerm = `%${filters.search}%`;
+      sqlQuery += ` AND (name ILIKE $${paramIndex} OR description ILIKE $${paramIndex})`;
+      params.push(searchTerm);
+      paramIndex++;
+    }
+
+    // Status filter
+    if (filters?.statuses && filters.statuses.length > 0) {
+      const statusPlaceholders = filters.statuses.map(() => `$${paramIndex++}`).join(',');
+      sqlQuery += ` AND status IN (${statusPlaceholders})`;
+      params.push(...filters.statuses);
+    }
+
+    sqlQuery += ` ORDER BY created_at DESC`;
+
+    const result = await query(sqlQuery, params);
 
     return result.rows as Habit[];
   } catch (error) {
