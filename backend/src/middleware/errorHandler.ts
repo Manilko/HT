@@ -1,5 +1,23 @@
+//
+//  errorHandler.ts
+//  Habit Tracker Backend
+//
+//  Created by Manilko, Yevhenii on 2026-08-20.
+//
+
 import { Request, Response, NextFunction } from 'express';
-import { ApiResponse } from '@types/index';
+import { logger } from '../config/logger';
+
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+  timestamp: string;
+}
 
 export class AppError extends Error {
   constructor(
@@ -10,6 +28,7 @@ export class AppError extends Error {
   ) {
     super(message);
     this.name = 'AppError';
+    Object.setPrototypeOf(this, AppError.prototype);
   }
 }
 
@@ -22,7 +41,7 @@ export function errorHandler(
   const timestamp = new Date().toISOString();
 
   if (err instanceof AppError) {
-    const response: ApiResponse<null> = {
+    const response: ApiResponse = {
       success: false,
       error: {
         code: err.code,
@@ -31,13 +50,15 @@ export function errorHandler(
       },
       timestamp,
     };
+
+    logger.warn(`API Error: ${err.code}`, { statusCode: err.statusCode, path: req.path });
     res.status(err.statusCode).json(response);
     return;
   }
 
-  console.error('Unhandled error:', err);
+  logger.error('Unhandled error', err);
 
-  const response: ApiResponse<null> = {
+  const response: ApiResponse = {
     success: false,
     error: {
       code: 'INTERNAL_SERVER_ERROR',
@@ -45,6 +66,7 @@ export function errorHandler(
     },
     timestamp,
   };
+
   res.status(500).json(response);
 }
 
