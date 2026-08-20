@@ -8,80 +8,80 @@
 import SwiftUI
 
 struct SettingsView: View {
-  @StateObject private var viewModel = SettingsViewModel()
-  @EnvironmentObject var coordinator: AppCoordinator
+  @Environment(\.scenePhase) var scenePhase
+  @StateObject private var logoutService = LogoutService()
+  @State private var isLoggingOut = false
+  @State private var showLogoutConfirmation = false
+  @State private var logoutError: String?
 
   var body: some View {
     NavigationStack {
-      Form {
-        Section(header: Text("Profile")) {
+      List {
+        Section("App") {
           HStack {
-            Text("User ID")
+            Text("Version")
             Spacer()
-            Text(viewModel.userId ?? "-")
-              .foregroundColor(.gray)
-          }
-
-          HStack {
-            Text("Timezone")
-            Spacer()
-            Picker("", selection: $viewModel.timezone) {
-              ForEach(TimeZone.knownTimeZoneIdentifiers, id: \.self) { tz in
-                Text(tz).tag(tz)
-              }
-            }
-            .pickerStyle(.menu)
+            Text("1.0.0")
+              .foregroundColor(.secondary)
           }
         }
 
-        Section(header: Text("Account")) {
-          Button(role: .destructive, action: { Task { await logout() } }) {
+        Section("About") {
+          Text("Track your daily habits and celebrate your streaks.")
+            .foregroundColor(.secondary)
+            .font(.subheadline)
+        }
+
+        Section("Account") {
+          Button(role: .destructive, action: { showLogoutConfirmation = true }) {
             HStack {
               Image(systemName: "rectangle.portrait.and.arrow.right")
               Text("Logout")
             }
           }
-          .disabled(viewModel.isLoading)
-
-          Button(role: .destructive, action: { Task { await deleteAccount() } }) {
-            HStack {
-              Image(systemName: "trash")
-              Text("Delete Account")
-            }
-          }
-          .disabled(viewModel.isLoading)
-        }
-
-        if let error = viewModel.errorMessage {
-          Section {
-            Text(error)
-              .font(.caption)
-              .foregroundColor(.red)
-          }
+          .disabled(isLoggingOut)
         }
       }
       .navigationTitle("Settings")
-      .onAppear {
+      .navigationBarTitleDisplayMode(.inline)
+    }
+    .alert("Logout?", isPresented: $showLogoutConfirmation) {
+      Button("Cancel", role: .cancel) {}
+      Button("Logout", role: .destructive) {
         Task {
-          await viewModel.loadUserProfile()
+          await performLogout()
         }
+      }
+    } message: {
+      Text("You will be logged out and returned to the login screen.")
+    }
+    .alert("Logout Error", isPresented: .constant(logoutError != nil)) {
+      Button("OK") {
+        logoutError = nil
+      }
+    } message: {
+      if let error = logoutError {
+        Text(error)
       }
     }
   }
 
-  private func logout() async {
-    await coordinator.logout()
-  }
+  private func performLogout() async {
+    isLoggingOut = true
 
-  private func deleteAccount() async {
-    await viewModel.deleteAccount()
-    if viewModel.errorMessage == nil {
-      await coordinator.logout()
+    do {
+      try await logoutService.logout()
+      // Navigation handled by AppState or root view observation
+      print("✓ Logout successful")
+    } catch {
+      logoutError = "Failed to logout: \(error.localizedDescription)"
+      print("✗ Logout failed: \(error.localizedDescription)")
     }
+
+    isLoggingOut = false
   }
 }
 
 #Preview {
   SettingsView()
-    .environmentObject(AppCoordinator())
 }
