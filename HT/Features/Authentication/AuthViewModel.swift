@@ -22,6 +22,35 @@ enum AuthenticationState {
   }
 }
 
+enum AuthenticationError: LocalizedError {
+  case cancelled
+  case authFailed(String)
+  case noAuthCode
+  case tokenExchangeFailed(String)
+  case refreshFailed
+  case noRefreshToken
+  case invalidURL
+
+  var errorDescription: String? {
+    switch self {
+    case .cancelled:
+      return "Authentication was cancelled"
+    case .authFailed(let message):
+      return "Authentication failed: \(message)"
+    case .noAuthCode:
+      return "No authorization code received"
+    case .tokenExchangeFailed(let message):
+      return "Failed to exchange code for tokens: \(message)"
+    case .refreshFailed:
+      return "Failed to refresh authentication token"
+    case .noRefreshToken:
+      return "No refresh token available"
+    case .invalidURL:
+      return "Invalid authentication URL"
+    }
+  }
+}
+
 @MainActor
 class AuthViewModel: ObservableObject {
   @Published var authState: AuthenticationState = .unauthenticated
@@ -121,23 +150,3 @@ class AuthViewModel: ObservableObject {
   }
 }
 
-extension AuthenticationError: LocalizedError {
-  var errorDescription: String? {
-    switch self {
-    case .cancelled:
-      return "Authentication was cancelled"
-    case .authFailed(let message):
-      return "Authentication failed: \(message)"
-    case .noAuthCode:
-      return "No authorization code received"
-    case .tokenExchangeFailed(let message):
-      return "Failed to exchange code for tokens: \(message)"
-    case .refreshFailed:
-      return "Failed to refresh authentication token"
-    case .noRefreshToken:
-      return "No refresh token available"
-    case .invalidURL:
-      return "Invalid authentication URL"
-    }
-  }
-}
