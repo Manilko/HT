@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct HTApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+  @StateObject private var coordinator = AppCoordinator()
+
+  var body: some Scene {
+    WindowGroup {
+      RootView(coordinator: coordinator)
+        .environmentObject(coordinator)
     }
+  }
 }

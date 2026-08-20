@@ -8,18 +8,36 @@
 import SwiftUI
 import Combine
 
-enum AppRoute: Hashable {
-  case auth
-  case habits
-  case settings
-}
-
 @MainActor
 class AppCoordinator: ObservableObject {
-  @Published var path: [AppRoute] = []
-  @Published var isAuthenticated = false
+  enum Route: Hashable {
+    case habitDetail(habitId: Int)
+    case settings
+  }
 
-  func navigate(to route: AppRoute) {
+  @Published var path: [Route] = []
+  @Published var isAuthenticated = false
+  @Published var authenticationError: String?
+
+  private let authManager: AuthenticationManager
+
+  init(authManager: AuthenticationManager = AuthenticationManager.shared) {
+    self.authManager = authManager
+    self.isAuthenticated = authManager.isAuthenticated()
+  }
+
+  @ViewBuilder
+  func view(for route: Route) -> some View {
+    switch route {
+    case .habitDetail(let habitId):
+      HabitDetailView(habitId: habitId)
+
+    case .settings:
+      SettingsView()
+    }
+  }
+
+  func navigate(to route: Route) {
     path.append(route)
   }
 
@@ -33,8 +51,21 @@ class AppCoordinator: ObservableObject {
     path.removeAll()
   }
 
-  func logOut() {
-    isAuthenticated = false
-    path.removeAll()
+  func logout() async {
+    do {
+      try await authManager.logout()
+      await MainActor.run {
+        self.isAuthenticated = false
+        self.path.removeAll()
+      }
+    } catch {
+      await MainActor.run {
+        self.authenticationError = error.localizedDescription
+      }
+    }
+  }
+
+  func setAuthenticated(_ authenticated: Bool) {
+    isAuthenticated = authenticated
   }
 }
