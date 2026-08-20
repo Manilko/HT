@@ -8,36 +8,49 @@
 import SwiftUI
 
 struct RootView: View {
-  @StateObject private var coordinator: AppCoordinator
-  @EnvironmentObject var sessionManager: SessionManager
+  @StateObject private var appCoordinator: AppCoordinator
+  @StateObject private var authCoordinator: AuthCoordinator
 
-  init(coordinator: AppCoordinator) {
-    _coordinator = StateObject(wrappedValue: coordinator)
+  init(appCoordinator: AppCoordinator, authCoordinator: AuthCoordinator) {
+    _appCoordinator = StateObject(wrappedValue: appCoordinator)
+    _authCoordinator = StateObject(wrappedValue: authCoordinator)
   }
 
   var body: some View {
-    NavigationStack(path: $coordinator.path) {
-      Group {
-        if sessionManager.isAuthenticated {
-          MainTabView()
-        } else {
-          AuthenticationView()
+    Group {
+      if authCoordinator.isRestoring {
+        // Show splash screen while restoring session
+        ZStack {
+          Color(.systemBackground)
+            .ignoresSafeArea()
+
+          VStack(spacing: 20) {
+            Text("Habit Tracker")
+              .font(.system(size: 34, weight: .bold))
+
+            ProgressView()
+              .padding()
+          }
         }
+      } else if authCoordinator.isAuthenticated {
+        NavigationStack(path: $appCoordinator.path) {
+          MainTabView()
+            .navigationDestination(for: AppCoordinator.Route.self) { route in
+              appCoordinator.view(for: route)
+            }
+        }
+        .environmentObject(appCoordinator)
+      } else {
+        AuthenticationView()
       }
-      .navigationDestination(for: AppCoordinator.Route.self) { route in
-        coordinator.view(for: route)
-      }
-    }
-    .environmentObject(coordinator)
-    .onChange(of: sessionManager.isAuthenticated) { _, newValue in
-      coordinator.setAuthenticated(newValue)
     }
   }
 }
 
 #Preview {
-  let coordinator = AppCoordinator()
-  let sessionManager = SessionManager.shared
-  RootView(coordinator: coordinator)
-    .environmentObject(sessionManager)
+  let appCoordinator = AppCoordinator()
+  let authCoordinator = AuthCoordinator()
+  RootView(appCoordinator: appCoordinator, authCoordinator: authCoordinator)
+    .environmentObject(appCoordinator)
+    .environmentObject(authCoordinator)
 }
