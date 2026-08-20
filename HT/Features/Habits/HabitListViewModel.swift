@@ -67,12 +67,11 @@ class HabitListViewModel: ObservableObject {
           return checkIn.checkInDate.prefix(10) == today
         }
 
-        let streakInfo = calculateStreaks(habit: habit, checkIns: checkIns)
         let item = HabitListItem(
           from: habit,
-          currentStreak: streakInfo.current,
-          bestStreak: streakInfo.best,
-          totalCheckIns: checkIns.count,
+          currentStreak: habit.currentStreak,
+          bestStreak: habit.bestStreak,
+          totalCheckIns: habit.totalCheckIns,
           todayCompleted: todayCheckedIn && habit.status.isActive
         )
         habitItems.append(item)
@@ -87,56 +86,6 @@ class HabitListViewModel: ObservableObject {
     isLoading = false
   }
 
-  private func calculateStreaks(habit: Habit, checkIns: [CheckIn]) -> (current: Int, best: Int) {
-    guard !checkIns.isEmpty else { return (0, 0) }
-
-    let sortedCheckIns = checkIns.sorted { $0.checkInDate < $1.checkInDate }
-    let dateFormatter = ISO8601DateFormatter()
-    dateFormatter.formatOptions = [.withFullDate]
-
-    var currentStreak = 0
-    var bestStreak = 0
-    var streak = 1
-
-    let calendar = Calendar.current
-    let today = calendar.startOfDay(for: Date())
-
-    for (index, checkIn) in sortedCheckIns.enumerated() {
-      guard let checkInDate = dateFormatter.date(from: checkIn.checkInDate) else { continue }
-      let normalizedDate = calendar.startOfDay(for: checkInDate)
-
-      if index == 0 {
-        streak = 1
-      } else {
-        guard let previousDate = dateFormatter.date(from: sortedCheckIns[index - 1].checkInDate) else {
-          continue
-        }
-        let normalizedPreviousDate = calendar.startOfDay(for: previousDate)
-
-        if calendar.isDate(normalizedDate, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: normalizedPreviousDate)!) {
-          streak += 1
-        } else {
-          bestStreak = max(bestStreak, streak)
-          streak = 1
-        }
-      }
-    }
-
-    bestStreak = max(bestStreak, streak)
-
-    if !sortedCheckIns.isEmpty,
-       let lastCheckInDate = dateFormatter.date(from: sortedCheckIns.last!.checkInDate) {
-      let normalizedLastDate = calendar.startOfDay(for: lastCheckInDate)
-      if calendar.isDate(normalizedLastDate, inSameDayAs: today) ||
-         calendar.isDate(normalizedLastDate, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: today)!) {
-        currentStreak = streak
-      } else {
-        currentStreak = 0
-      }
-    }
-
-    return (currentStreak, bestStreak)
-  }
 
   private func applyFilters() {
     var filtered = allHabits
@@ -274,12 +223,11 @@ class HabitListViewModel: ObservableObject {
         return checkIn.checkInDate.prefix(10) == today
       }
 
-      let streakInfo = calculateStreaks(habit: habit, checkIns: checkIns)
       let updatedItem = HabitListItem(
         from: habit,
-        currentStreak: streakInfo.current,
-        bestStreak: streakInfo.best,
-        totalCheckIns: checkIns.count,
+        currentStreak: habit.currentStreak,
+        bestStreak: habit.bestStreak,
+        totalCheckIns: habit.totalCheckIns,
         todayCompleted: todayCheckedIn && habit.status.isActive
       )
 

@@ -22,6 +22,8 @@ import {
   UpdateHabitData,
   HabitFilterOptions,
 } from '../repositories/habitRepository';
+import { getCheckInsByHabitId } from '../repositories/checkInRepository';
+import { calculateStreaks } from '../services/streakService';
 import { logger } from '../config/logger';
 
 const router = Router();
@@ -109,16 +111,38 @@ function validateStatusTransition(currentStatus: HabitStatus, newStatus: HabitSt
   }
 }
 
-function habitToResponse(habit: Habit) {
-  return {
-    id: habit.id,
-    name: habit.name,
-    description: habit.description,
-    startDate: habit.start_date,
-    status: habit.status,
-    createdAt: habit.created_at,
-    updatedAt: habit.updated_at,
-  };
+async function habitToResponse(habit: Habit) {
+  try {
+    const checkIns = await getCheckInsByHabitId(habit.id);
+    const streaks = calculateStreaks(checkIns);
+
+    return {
+      id: habit.id,
+      name: habit.name,
+      description: habit.description,
+      startDate: habit.start_date,
+      status: habit.status,
+      currentStreak: streaks.currentStreak,
+      bestStreak: streaks.bestStreak,
+      totalCheckIns: streaks.totalCheckIns,
+      createdAt: habit.created_at,
+      updatedAt: habit.updated_at,
+    };
+  } catch (error) {
+    logger.error(`Failed to get streak stats for habit ${habit.id}`, error);
+    return {
+      id: habit.id,
+      name: habit.name,
+      description: habit.description,
+      startDate: habit.start_date,
+      status: habit.status,
+      currentStreak: 0,
+      bestStreak: 0,
+      totalCheckIns: 0,
+      createdAt: habit.created_at,
+      updatedAt: habit.updated_at,
+    };
+  }
 }
 
 // MARK: - GET /habits - List user's habits with optional filters
@@ -150,10 +174,14 @@ router.get(
 
     const habits = await getHabitsByUserId(userId, filters);
 
+    const habitsWithStreaks = await Promise.all(
+      habits.map(habit => habitToResponse(habit))
+    );
+
     const response: ApiResponse = {
       success: true,
       data: {
-        habits: habits.map(habitToResponse),
+        habits: habitsWithStreaks,
         count: habits.length,
       },
       timestamp: new Date().toISOString(),
@@ -188,9 +216,11 @@ router.get(
       throw new AppError('NOT_FOUND', 404, 'Habit not found');
     }
 
+    const habitWithStreaks = await habitToResponse(habit);
+
     const response: ApiResponse = {
       success: true,
-      data: habitToResponse(habit),
+      data: habitWithStreaks,
       timestamp: new Date().toISOString(),
     };
 
@@ -221,9 +251,11 @@ router.post(
 
     const habit = await createHabit(userId, createData);
 
+    const habitWithStreaks = await habitToResponse(habit);
+
     const response: ApiResponse = {
       success: true,
-      data: habitToResponse(habit),
+      data: habitWithStreaks,
       timestamp: new Date().toISOString(),
     };
 
@@ -294,9 +326,11 @@ router.patch(
 
     const updatedHabit = await updateHabit(habitId, updateData);
 
+    const habitWithStreaks = await habitToResponse(updatedHabit);
+
     const response: ApiResponse = {
       success: true,
-      data: habitToResponse(updatedHabit),
+      data: habitWithStreaks,
       timestamp: new Date().toISOString(),
     };
 

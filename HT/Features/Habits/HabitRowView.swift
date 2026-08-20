@@ -121,6 +121,9 @@ struct StreakBadge: View {
         description: "Run 5 miles every morning",
         startDate: "2026-08-20",
         status: .active,
+        currentStreak: 7,
+        bestStreak: 15,
+        totalCheckIns: 20,
         createdAt: "2026-08-20T10:00:00Z",
         updatedAt: "2026-08-20T10:00:00Z"
       ),

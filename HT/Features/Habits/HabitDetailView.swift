@@ -359,6 +359,9 @@ struct StatCard: View {
           description: "Run 5 miles",
           startDate: "2026-08-20T00:00:00Z",
           status: .active,
+          currentStreak: 7,
+          bestStreak: 15,
+          totalCheckIns: 20,
           createdAt: "2026-08-20T10:00:00Z",
           updatedAt: "2026-08-20T10:00:00Z"
         ),

@@ -42,6 +42,9 @@ struct Habit: Identifiable, Codable {
   let description: String?
   let startDate: String
   let status: HabitStatus
+  let currentStreak: Int
+  let bestStreak: Int
+  let totalCheckIns: Int
   let createdAt: String
   let updatedAt: String
 
@@ -55,6 +58,9 @@ struct Habit: Identifiable, Codable {
     case description
     case startDate
     case status
+    case currentStreak
+    case bestStreak
+    case totalCheckIns
     case createdAt
     case updatedAt
   }
@@ -66,6 +72,9 @@ struct HabitDTO: Codable {
   let description: String?
   let startDate: String
   let status: HabitStatus
+  let currentStreak: Int
+  let bestStreak: Int
+  let totalCheckIns: Int
   let createdAt: String
   let updatedAt: String
 
@@ -75,6 +84,9 @@ struct HabitDTO: Codable {
     case description
     case startDate
     case status
+    case currentStreak
+    case bestStreak
+    case totalCheckIns
     case createdAt
     case updatedAt
   }
@@ -86,6 +98,9 @@ struct HabitDTO: Codable {
       description: description,
       startDate: startDate,
       status: status,
+      currentStreak: currentStreak,
+      bestStreak: bestStreak,
+      totalCheckIns: totalCheckIns,
       createdAt: createdAt,
       updatedAt: updatedAt
     )
