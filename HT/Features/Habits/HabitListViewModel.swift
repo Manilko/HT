@@ -23,6 +23,7 @@ class HabitListViewModel: ObservableObject {
   @Published var showCompletedOnly: Bool = false
 
   private let habitsAPIClient: HabitsAPIClient
+  private let checkInsAPIClient: CheckInsAPIClient
 
   var isEmpty: Bool {
     filteredHabits.isEmpty && !isLoading
@@ -36,8 +37,12 @@ class HabitListViewModel: ObservableObject {
     !searchText.isEmpty || selectedStatuses.count < 3 || showCompletedOnly
   }
 
-  init(habitsAPIClient: HabitsAPIClient = HabitsAPIClient()) {
+  init(
+    habitsAPIClient: HabitsAPIClient = HabitsAPIClient(),
+    checkInsAPIClient: CheckInsAPIClient = CheckInsAPIClient()
+  ) {
     self.habitsAPIClient = habitsAPIClient
+    self.checkInsAPIClient = checkInsAPIClient
   }
 
   func loadHabits() async {
@@ -145,6 +150,24 @@ class HabitListViewModel: ObservableObject {
   func confirmDeleteHabit(_ habit: HabitListItem) {
     habitToDelete = habit
     showDeleteConfirmation = true
+  }
+
+  func checkInToday(_ habit: HabitListItem) async {
+    do {
+      _ = try await checkInsAPIClient.checkInToday(habitId: habit.id)
+      await loadHabits()
+    } catch {
+      errorMessage = "Failed to check in: \(error.localizedDescription)"
+    }
+  }
+
+  func undoTodaysCheckIn(_ habit: HabitListItem) async {
+    do {
+      try await checkInsAPIClient.undoTodaysCheckIn(habitId: habit.id)
+      await loadHabits()
+    } catch {
+      errorMessage = "Failed to undo check-in: \(error.localizedDescription)"
+    }
   }
 
   func clearError() {

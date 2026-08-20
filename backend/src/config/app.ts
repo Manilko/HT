@@ -15,6 +15,7 @@ import { requestLogger } from '../middleware/requestLogger';
 import { createHealthRouter } from '../routes/health';
 import { createAuthRouter } from '../routes/auth';
 import { createHabitsRouter } from '../routes/habits';
+import { createCheckInsRouter } from '../routes/checkIns';
 
 export function createApp(): express.Application {
   const app = express();
@@ -39,19 +40,12 @@ export function createApp(): express.Application {
   // API v1 routes
   app.use('/v1/auth', createAuthRouter());
   app.use('/v1/habits', createHabitsRouter());
+  app.use('/v1/habits', createCheckInsRouter());
 
   app.use('/v1/users', (req: Request, res: Response) => {
     res.json({
       success: true,
       message: 'Users module - not yet implemented',
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  app.use('/v1/habits', (req: Request, res: Response) => {
-    res.json({
-      success: true,
-      message: 'Habits module - not yet implemented',
       timestamp: new Date().toISOString(),
     });
   });

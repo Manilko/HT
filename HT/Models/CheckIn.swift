@@ -12,15 +12,23 @@ struct CheckIn: Identifiable, Codable {
   let habitId: Int
   let userId: Int
   let checkInDate: String
-  let notes: String?
-  let createdAt: Date
+  let createdAt: String
+
+  var dateFormatted: String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd"
+    if let date = formatter.date(from: checkInDate) {
+      formatter.dateStyle = .medium
+      return formatter.string(from: date)
+    }
+    return checkInDate
+  }
 
   enum CodingKeys: String, CodingKey {
     case id
-    case habitId = "habit_id"
-    case userId = "user_id"
-    case checkInDate = "check_in_date"
-    case notes
-    case createdAt = "created_at"
+    case habitId
+    case userId
+    case checkInDate
+    case createdAt
   }
 }
