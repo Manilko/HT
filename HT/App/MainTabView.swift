@@ -8,11 +8,9 @@
 import SwiftUI
 
 struct MainTabView: View {
-  @StateObject private var habitsCoordinator = HabitsCoordinator()
-
   var body: some View {
     TabView {
-      HabitsView(coordinator: habitsCoordinator)
+      HabitListView()
         .tabItem {
           Label("Habits", systemImage: "checkmark.circle")
         }
