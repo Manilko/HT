@@ -106,4 +106,29 @@ class HabitsAPIClient {
   func resumeHabit(id: Int) async throws -> Habit {
     try await updateHabit(id: id, status: .active)
   }
+
+  func checkInToday(habitId: Int) async throws -> CheckIn {
+    struct CheckInResponse: Decodable {
+      let success: Bool
+      let data: CheckIn
+    }
+
+    let response: CheckInResponse = try await apiClient.request(
+      endpoint: "/habits/\(habitId)/check-ins",
+      method: .post
+    )
+
+    return response.data
+  }
+
+  func undoTodaysCheckIn(habitId: Int) async throws {
+    struct DeleteResponse: Decodable {
+      let success: Bool
+    }
+
+    let _: DeleteResponse = try await apiClient.request(
+      endpoint: "/habits/\(habitId)/check-ins/today",
+      method: .delete
+    )
+  }
 }
