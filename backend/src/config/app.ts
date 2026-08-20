@@ -14,6 +14,7 @@ import { errorHandler, AppError } from '../middleware/errorHandler';
 import { requestLogger } from '../middleware/requestLogger';
 import { createHealthRouter } from '../routes/health';
 import { createAuthRouter } from '../routes/auth';
+import { createHabitsRouter } from '../routes/habits';
 
 export function createApp(): express.Application {
   const app = express();
@@ -37,6 +38,7 @@ export function createApp(): express.Application {
 
   // API v1 routes
   app.use('/v1/auth', createAuthRouter());
+  app.use('/v1/habits', createHabitsRouter());
 
   app.use('/v1/users', (req: Request, res: Response) => {
     res.json({
