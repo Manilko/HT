@@ -22,6 +22,10 @@ class HabitListViewModel: ObservableObject {
   @Published var selectedStatuses: Set<HabitStatus> = [.active, .paused, .archived]
   @Published var showCompletedOnly: Bool = false
 
+  // Check-in state
+  @Published var checkingInHabitId: Int?
+  @Published var checkInErrors: [Int: String] = [:]
+
   private let habitsAPIClient: HabitsAPIClient
   private let checkInsAPIClient: CheckInsAPIClient
   private let checkInRepository: CheckInRepository
@@ -225,21 +229,71 @@ class HabitListViewModel: ObservableObject {
   }
 
   func checkInToday(_ habit: HabitListItem) async {
+    guard checkingInHabitId == nil else { return }
+    guard !habit.todayCompleted else { return }
+    guard habit.status.isActive else { return }
+
+    checkingInHabitId = habit.id
+    checkInErrors.removeValue(forKey: habit.id)
+
     do {
       _ = try await checkInsAPIClient.checkInToday(habitId: habit.id)
-      await loadHabits()
+      await refreshHabitAfterCheckIn(habit.id)
     } catch {
-      errorMessage = "Failed to check in: \(error.localizedDescription)"
+      checkInErrors[habit.id] = error.localizedDescription
     }
+
+    checkingInHabitId = nil
   }
 
   func undoTodaysCheckIn(_ habit: HabitListItem) async {
+    guard checkingInHabitId == nil else { return }
+    guard habit.todayCompleted else { return }
+    guard habit.status.isActive else { return }
+
+    checkingInHabitId = habit.id
+    checkInErrors.removeValue(forKey: habit.id)
+
     do {
       try await checkInsAPIClient.undoTodaysCheckIn(habitId: habit.id)
-      await loadHabits()
+      await refreshHabitAfterCheckIn(habit.id)
     } catch {
-      errorMessage = "Failed to undo check-in: \(error.localizedDescription)"
+      checkInErrors[habit.id] = error.localizedDescription
     }
+
+    checkingInHabitId = nil
+  }
+
+  private func refreshHabitAfterCheckIn(_ habitId: Int) async {
+    do {
+      let habit = try await habitsAPIClient.getHabit(id: habitId)
+      let checkIns = try await checkInRepository.getCheckIns(habitId: habitId, forceRefresh: true)
+
+      let todayCheckedIn = checkIns.contains { checkIn in
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
+        return checkIn.checkInDate.prefix(10) == today
+      }
+
+      let streakInfo = calculateStreaks(habit: habit, checkIns: checkIns)
+      let updatedItem = HabitListItem(
+        from: habit,
+        currentStreak: streakInfo.current,
+        bestStreak: streakInfo.best,
+        totalCheckIns: checkIns.count,
+        todayCompleted: todayCheckedIn && habit.status.isActive
+      )
+
+      if let index = allHabits.firstIndex(where: { $0.id == habitId }) {
+        allHabits[index] = updatedItem
+        applyFilters()
+      }
+    } catch {
+      checkInErrors[habitId] = "Failed to refresh habit: \(error.localizedDescription)"
+    }
+  }
+
+  func clearCheckInError(_ habitId: Int) {
+    checkInErrors.removeValue(forKey: habitId)
   }
 
   func clearError() {

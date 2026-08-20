@@ -36,7 +36,7 @@ struct HabitListView: View {
         } else {
           List {
             ForEach(viewModel.filteredHabits) { habit in
-              HabitRowView(habit: habit)
+              HabitRowView(habit: habit, viewModel: viewModel)
                 .onTapGesture {
                   selectedHabit = habit
                 }

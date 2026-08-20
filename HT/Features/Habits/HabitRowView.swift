@@ -9,6 +9,7 @@ import SwiftUI
 
 struct HabitRowView: View {
   let habit: HabitListItem
+  let viewModel: HabitListViewModel?
 
   var statusColor: Color {
     switch habit.status {
@@ -54,11 +55,25 @@ struct HabitRowView: View {
           }
         }
 
-        if habit.todayCompleted {
-          Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 18))
-            .foregroundColor(.green)
-            .accessibilityLabel("Completed today")
+        if habit.status.isActive {
+          if let viewModel = viewModel {
+            let isCheckingIn = viewModel.checkingInHabitId == habit.id
+
+            if habit.todayCompleted {
+              Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 18))
+                .foregroundColor(.green)
+                .accessibilityLabel("Completed today")
+            } else if isCheckingIn {
+              ProgressView()
+                .tint(.blue)
+            } else if viewModel.checkInErrors[habit.id] != nil {
+              Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 18))
+                .foregroundColor(.red)
+                .accessibilityLabel("Check-in failed")
+            }
+          }
         }
       }
 
@@ -113,7 +128,8 @@ struct StreakBadge: View {
       bestStreak: 15,
       totalCheckIns: 20,
       todayCompleted: true
-    )
+    ),
+    viewModel: nil
   )
   .padding()
 }

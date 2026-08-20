@@ -62,35 +62,113 @@ struct HabitDetailView: View {
         }
 
         if !habit.status.isArchived {
-          // Check-in button for active habits
+          // Check-in section for active habits
           if habit.status.isActive {
-            if habit.todayCompleted {
-              Button(action: {
-                Task {
-                  await viewModel.undoTodaysCheckIn(habit)
-                }
-              }) {
-                Label("Undo Today's Check-in", systemImage: "checkmark.circle.fill")
+            VStack(spacing: 8) {
+              let isCheckingIn = viewModel.checkingInHabitId == habit.id
+              let hasError = viewModel.checkInErrors[habit.id] != nil
+              let errorMessage = viewModel.checkInErrors[habit.id]
+
+              if habit.todayCompleted {
+                VStack(spacing: 8) {
+                  HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                      .font(.system(size: 16))
+                    Text("Completed today")
+                      .fontWeight(.semibold)
+                    Spacer()
+                  }
+                  .padding(.vertical, 8)
+                  .padding(.horizontal, 12)
+                  .frame(maxWidth: .infinity)
+                  .background(Color.green.opacity(0.1))
+                  .cornerRadius(8)
+
+                  Button(action: {
+                    Task {
+                      await viewModel.undoTodaysCheckIn(habit)
+                    }
+                  }) {
+                    if isCheckingIn {
+                      ProgressView()
+                        .tint(.white)
+                    } else {
+                      Label("Undo Check-in", systemImage: "xmark.circle")
+                    }
+                  }
                   .frame(maxWidth: .infinity)
                   .padding(.vertical, 12)
-                  .background(Color.green)
+                  .background(Color.orange)
                   .foregroundColor(.white)
                   .cornerRadius(8)
-              }
-            } else {
-              Button(action: {
-                Task {
-                  await viewModel.checkInToday(habit)
+                  .disabled(isCheckingIn || hasError)
                 }
-              }) {
-                Label("Check In Today", systemImage: "plus.circle")
+              } else {
+                VStack(spacing: 8) {
+                  if hasError {
+                    HStack {
+                      Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 16))
+                      Text(errorMessage ?? "Failed to check in")
+                        .font(.caption)
+                        .lineLimit(2)
+                      Spacer()
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(8)
+                  } else {
+                    HStack {
+                      Image(systemImage: "circle")
+                        .font(.system(size: 16))
+                      Text("Not completed today")
+                        .fontWeight(.semibold)
+                      Spacer()
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                  }
+
+                  Button(action: {
+                    Task {
+                      await viewModel.checkInToday(habit)
+                    }
+                  }) {
+                    if isCheckingIn {
+                      ProgressView()
+                        .tint(.white)
+                    } else {
+                      Label("Check In Today", systemImage: "plus.circle")
+                    }
+                  }
                   .frame(maxWidth: .infinity)
                   .padding(.vertical, 12)
                   .background(Color.blue)
                   .foregroundColor(.white)
                   .cornerRadius(8)
+                  .disabled(isCheckingIn || hasError)
+
+                  if hasError {
+                    Button(action: {
+                      viewModel.clearCheckInError(habit.id)
+                    }) {
+                      Text("Dismiss")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .foregroundColor(.red)
+                    }
+                  }
+                }
               }
             }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
           }
 
           // Actions
