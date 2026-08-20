@@ -56,16 +56,18 @@ export async function createCheckIn(habitId: number, userId: number, date: strin
   }
 }
 
-export async function getCheckInsByHabitId(habitId: number, userId: number): Promise<CheckIn[]> {
+export async function getCheckInsByHabitId(habitId: number, userId?: number): Promise<CheckIn[]> {
   try {
-    // Verify user owns the habit
-    const habitResult = await query(`SELECT id FROM habits WHERE id = $1 AND user_id = $2`, [
-      habitId,
-      userId,
-    ]);
+    // If userId provided, verify user owns the habit
+    if (userId !== undefined) {
+      const habitResult = await query(`SELECT id FROM habits WHERE id = $1 AND user_id = $2`, [
+        habitId,
+        userId,
+      ]);
 
-    if (habitResult.rows.length === 0) {
-      throw new Error('Habit not found or access denied');
+      if (habitResult.rows.length === 0) {
+        throw new Error('Habit not found or access denied');
+      }
     }
 
     const result = await query(
