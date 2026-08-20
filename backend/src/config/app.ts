@@ -13,6 +13,7 @@ import { logger } from './logger';
 import { errorHandler, AppError } from '../middleware/errorHandler';
 import { requestLogger } from '../middleware/requestLogger';
 import { createHealthRouter } from '../routes/health';
+import { createAuthRouter } from '../routes/auth';
 
 export function createApp(): express.Application {
   const app = express();
@@ -34,14 +35,8 @@ export function createApp(): express.Application {
   // Routes
   app.use('/health', createHealthRouter());
 
-  // API v1 routes (placeholder)
-  app.use('/v1/auth', (req: Request, res: Response) => {
-    res.json({
-      success: true,
-      message: 'Auth module - not yet implemented',
-      timestamp: new Date().toISOString(),
-    });
-  });
+  // API v1 routes
+  app.use('/v1/auth', createAuthRouter());
 
   app.use('/v1/users', (req: Request, res: Response) => {
     res.json({

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct RootView: View {
   @StateObject private var coordinator: AppCoordinator
+  @EnvironmentObject var sessionManager: SessionManager
 
   init(coordinator: AppCoordinator) {
     _coordinator = StateObject(wrappedValue: coordinator)
@@ -17,7 +18,7 @@ struct RootView: View {
   var body: some View {
     NavigationStack(path: $coordinator.path) {
       Group {
-        if coordinator.isAuthenticated {
+        if sessionManager.isAuthenticated {
           MainTabView()
         } else {
           AuthenticationView()
@@ -28,10 +29,15 @@ struct RootView: View {
       }
     }
     .environmentObject(coordinator)
+    .onChange(of: sessionManager.isAuthenticated) { _, newValue in
+      coordinator.setAuthenticated(newValue)
+    }
   }
 }
 
 #Preview {
   let coordinator = AppCoordinator()
+  let sessionManager = SessionManager.shared
   RootView(coordinator: coordinator)
+    .environmentObject(sessionManager)
 }

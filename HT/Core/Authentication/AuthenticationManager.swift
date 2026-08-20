@@ -14,64 +14,46 @@ class AuthenticationManager: ObservableObject {
 
   @Published var isAuthenticating = false
   @Published var authError: Error?
+  @Published var isAuthenticated = false
 
+  private let sessionManager: SessionManager
   private let storageManager: StorageManager
-  private let apiClient: APIClient
 
   nonisolated private init(
-    storageManager: StorageManager = StorageManager.shared,
-    apiClient: APIClient = APIClient.shared
+    sessionManager: SessionManager = SessionManager.shared,
+    storageManager: StorageManager = StorageManager.shared
   ) {
+    self.sessionManager = sessionManager
     self.storageManager = storageManager
-    self.apiClient = apiClient
   }
 
-  func isAuthenticated() -> Bool {
-    return storageManager.accessToken != nil
+  func signInWithGoogle() async {
+    isAuthenticating = true
+    defer { isAuthenticating = false }
+
+    await sessionManager.signInWithGoogle()
+
+    isAuthenticated = sessionManager.isAuthenticated
+    authError = sessionManager.error
+  }
+
+  func signInWithGitHub() async {
+    isAuthenticating = true
+    defer { isAuthenticating = false }
+
+    await sessionManager.signInWithGitHub()
+
+    isAuthenticated = sessionManager.isAuthenticated
+    authError = sessionManager.error
+  }
+
+  func logout() async {
+    await sessionManager.logout()
+    isAuthenticated = sessionManager.isAuthenticated
   }
 
   func getAccessToken() -> String? {
     return storageManager.accessToken
-  }
-
-  func signInWithGoogle() async throws {
-    isAuthenticating = true
-    defer { isAuthenticating = false }
-
-    // TODO: Implement Google OAuth flow
-    // For now, mock implementation
-    await MainActor.run {
-      self.storageManager.saveAccessToken("mock_token_google")
-      self.storageManager.saveRefreshToken("mock_refresh_token_google")
-    }
-  }
-
-  func signInWithGitHub() async throws {
-    isAuthenticating = true
-    defer { isAuthenticating = false }
-
-    // TODO: Implement GitHub OAuth flow
-    // For now, mock implementation
-    await MainActor.run {
-      self.storageManager.saveAccessToken("mock_token_github")
-      self.storageManager.saveRefreshToken("mock_refresh_token_github")
-    }
-  }
-
-  func logout() async throws {
-    // TODO: Revoke tokens on backend if needed
-    await MainActor.run {
-      self.storageManager.clearAllTokens()
-    }
-  }
-
-  func refreshTokenIfNeeded() async throws {
-    guard let refreshToken = storageManager.refreshToken else {
-      throw AuthenticationError.noRefreshToken
-    }
-
-    // TODO: Call backend refresh endpoint
-    // For now, mock implementation
   }
 }
 

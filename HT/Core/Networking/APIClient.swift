@@ -13,9 +13,11 @@ class APIClient {
   private let baseURL = "https://api.habittracker.example/v1"
   private let session: URLSession
   private let storageManager: StorageManager
+  private let authService: AuthService
 
-  private init(storageManager: StorageManager = .shared) {
+  private init(storageManager: StorageManager = .shared, authService: AuthService = .shared) {
     self.storageManager = storageManager
+    self.authService = authService
     let config = URLSessionConfiguration.default
     config.timeoutIntervalForRequest = 30
     config.timeoutIntervalForResource = 300
@@ -26,6 +28,15 @@ class APIClient {
     endpoint: String,
     method: HTTPMethod = .get,
     body: Encodable? = nil
+  ) async throws -> T {
+    return try await performRequest(endpoint: endpoint, method: method, body: body, retryCount: 0)
+  }
+
+  private func performRequest<T: Decodable>(
+    endpoint: String,
+    method: HTTPMethod,
+    body: Encodable?,
+    retryCount: Int
   ) async throws -> T {
     guard let url = URL(string: baseURL + endpoint) else {
       throw APIError.invalidURL
@@ -52,6 +63,14 @@ class APIClient {
     switch httpResponse.statusCode {
     case 200...299:
       return try JSONDecoder().decode(T.self, from: data)
+    case 401 where retryCount == 0:
+      // Token expired - try to refresh and retry
+      do {
+        try await authService.refreshTokenIfNeeded()
+        return try await performRequest(endpoint: endpoint, method: method, body: body, retryCount: 1)
+      } catch {
+        throw APIError.unauthorized
+      }
     case 401:
       throw APIError.unauthorized
     case 404:
