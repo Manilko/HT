@@ -62,6 +62,37 @@ struct HabitDetailView: View {
         }
 
         if !habit.status.isArchived {
+          // Check-in button for active habits
+          if habit.status.isActive {
+            if habit.todayCompleted {
+              Button(action: {
+                Task {
+                  await viewModel.undoTodaysCheckIn(habit)
+                }
+              }) {
+                Label("Undo Today's Check-in", systemImage: "checkmark.circle.fill")
+                  .frame(maxWidth: .infinity)
+                  .padding(.vertical, 12)
+                  .background(Color.green)
+                  .foregroundColor(.white)
+                  .cornerRadius(8)
+              }
+            } else {
+              Button(action: {
+                Task {
+                  await viewModel.checkInToday(habit)
+                }
+              }) {
+                Label("Check In Today", systemImage: "plus.circle")
+                  .frame(maxWidth: .infinity)
+                  .padding(.vertical, 12)
+                  .background(Color.blue)
+                  .foregroundColor(.white)
+                  .cornerRadius(8)
+              }
+            }
+          }
+
           // Actions
           VStack(spacing: 12) {
             if habit.status.isPaused {

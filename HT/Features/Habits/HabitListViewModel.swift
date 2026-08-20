@@ -24,6 +24,7 @@ class HabitListViewModel: ObservableObject {
 
   private let habitsAPIClient: HabitsAPIClient
   private let checkInsAPIClient: CheckInsAPIClient
+  private let checkInRepository: CheckInRepository
 
   var isEmpty: Bool {
     filteredHabits.isEmpty && !isLoading
@@ -39,10 +40,12 @@ class HabitListViewModel: ObservableObject {
 
   init(
     habitsAPIClient: HabitsAPIClient = HabitsAPIClient(),
-    checkInsAPIClient: CheckInsAPIClient = CheckInsAPIClient()
+    checkInsAPIClient: CheckInsAPIClient = CheckInsAPIClient(),
+    checkInRepository: CheckInRepository = CheckInRepository()
   ) {
     self.habitsAPIClient = habitsAPIClient
     self.checkInsAPIClient = checkInsAPIClient
+    self.checkInRepository = checkInRepository
   }
 
   func loadHabits() async {
@@ -51,15 +54,84 @@ class HabitListViewModel: ObservableObject {
 
     do {
       let fetchedHabits = try await habitsAPIClient.listHabits()
-      self.allHabits = fetchedHabits.map { habit in
-        HabitListItem(from: habit)
+
+      var habitItems: [HabitListItem] = []
+      for habit in fetchedHabits {
+        let checkIns = try await checkInRepository.getCheckIns(habitId: habit.id)
+        let todayCheckedIn = checkIns.contains { checkIn in
+          let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
+          return checkIn.checkInDate.prefix(10) == today
+        }
+
+        let streakInfo = calculateStreaks(habit: habit, checkIns: checkIns)
+        let item = HabitListItem(
+          from: habit,
+          currentStreak: streakInfo.current,
+          bestStreak: streakInfo.best,
+          totalCheckIns: checkIns.count,
+          todayCompleted: todayCheckedIn && habit.status.isActive
+        )
+        habitItems.append(item)
       }
+
+      self.allHabits = habitItems
       applyFilters()
     } catch {
       errorMessage = error.localizedDescription
     }
 
     isLoading = false
+  }
+
+  private func calculateStreaks(habit: Habit, checkIns: [CheckIn]) -> (current: Int, best: Int) {
+    guard !checkIns.isEmpty else { return (0, 0) }
+
+    let sortedCheckIns = checkIns.sorted { $0.checkInDate < $1.checkInDate }
+    let dateFormatter = ISO8601DateFormatter()
+    dateFormatter.formatOptions = [.withFullDate]
+
+    var currentStreak = 0
+    var bestStreak = 0
+    var streak = 1
+
+    let calendar = Calendar.current
+    let today = calendar.startOfDay(for: Date())
+
+    for (index, checkIn) in sortedCheckIns.enumerated() {
+      guard let checkInDate = dateFormatter.date(from: checkIn.checkInDate) else { continue }
+      let normalizedDate = calendar.startOfDay(for: checkInDate)
+
+      if index == 0 {
+        streak = 1
+      } else {
+        guard let previousDate = dateFormatter.date(from: sortedCheckIns[index - 1].checkInDate) else {
+          continue
+        }
+        let normalizedPreviousDate = calendar.startOfDay(for: previousDate)
+
+        if calendar.isDate(normalizedDate, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: normalizedPreviousDate)!) {
+          streak += 1
+        } else {
+          bestStreak = max(bestStreak, streak)
+          streak = 1
+        }
+      }
+    }
+
+    bestStreak = max(bestStreak, streak)
+
+    if !sortedCheckIns.isEmpty,
+       let lastCheckInDate = dateFormatter.date(from: sortedCheckIns.last!.checkInDate) {
+      let normalizedLastDate = calendar.startOfDay(for: lastCheckInDate)
+      if calendar.isDate(normalizedLastDate, inSameDayAs: today) ||
+         calendar.isDate(normalizedLastDate, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: today)!) {
+        currentStreak = streak
+      } else {
+        currentStreak = 0
+      }
+    }
+
+    return (currentStreak, bestStreak)
   }
 
   private func applyFilters() {
